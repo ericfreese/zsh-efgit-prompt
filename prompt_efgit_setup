@@ -1,0 +1,117 @@
+#!/usr/bin/env zsh
+
+prompt_efgit_status() {
+  git rev-parse --git-dir 1>&- 2>&-|| {
+    echo -n $'\0'
+    return
+  }
+
+  local -a parts
+  local fd line head ahead behind conflicts staged changed untracked
+
+  exec {fd}< <(git status --porcelain=v2 --branch)
+
+  while read -A -u $fd line; do
+    case "$line" in
+      '# branch.head'*) # Current branch
+        head="$line[3]"
+        [[ $head == "(detached)" ]] && head="${${$(echo ":$(git rev-parse --short HEAD)")/# #}/% #}"
+        ;;
+      '# branch.ab'*) # Divergence from upstream
+        ahead="${line[3]/#+}"
+        behind="${line[4]/#-}"
+        ;;
+      (1|2)*) # Modified or renamed/copied
+        [[ "${${line[2]}[1]}" != "." ]] && ((staged++))
+        [[ "${${line[2]}[2]}" != "." ]] && ((changed++))
+        ;;
+      'u'*) # Unmerged
+        ((conflicts++))
+        ;;
+      '?'*) # Untracked
+        ((untracked++))
+        ;;
+    esac
+  done
+
+  exec {fd}<&-
+
+  parts+="%F{8}$head%f"
+
+  local -a upstream_divergence
+
+  [[ $ahead > 0 ]] && upstream_divergence+="%F{blue}↑$ahead%f"
+  [[ $behind > 0 ]] && upstream_divergence+="%F{blue}↓$behind%f"
+
+  if [[ $#upstream_divergence > 0 ]]; then
+    parts+="${(j..)upstream_divergence}"
+  fi
+
+  local -a working_info
+
+  [[ $conflicts > 0 ]] && working_info+="%F{red}×$conflicts%f"
+  [[ $staged > 0 ]] && working_info+="%F{green}●$staged%f"
+  [[ $changed > 0 ]] && working_info+="%F{208}✻$changed%f"
+  [[ $untracked > 0 ]] && working_info+="%F{red}+$untracked%f"
+
+  if [[ $#working_info > 0 ]]; then
+    parts+="${(j..)working_info}"
+  else
+    parts+="%F{green}✔%f"
+  fi
+
+  echo -n "${(j. .)parts}"
+}
+
+prompt_efgit_define_prompt() {
+  setopt localoptions extendedglob
+
+  local -a parts=()
+
+  # Abbreviated current working directory
+  parts+="%F{blue}${${PWD/#$HOME/~}//(#b)([^\/])[^\/][^\/]#\//$match[1]/}%f"
+
+  # Git info (loaded async)
+  if [[ "$1" != $'\0' ]] then
+    if [[ -n "$1" ]]; then
+      parts+="$1"
+    else
+      parts+="..."
+    fi
+  fi
+
+  # Prompt arrow (red for non-zero status)
+  parts+="%(?.%F{8}.%F{red})❯%f"
+
+  PROMPT=" ${(j. .)parts} "
+}
+
+prompt_efgit_response() {
+  typeset -g _prompt_efgit_fd
+
+  prompt_efgit_define_prompt "$(<&$1)"
+  zle reset-prompt
+
+  zle -F $1
+  exec {1}<&-
+  unset _prompt_efgit_fd
+}
+
+prompt_efgit_precmd() {
+  typeset -g _prompt_efgit_fd
+  local FD kill_target
+
+  count=$((count + 1))
+
+  prompt_efgit_define_prompt
+
+  [[ -n $_prompt_efgit_fd ]] && {
+    zle -F $_prompt_efgit_fd
+    exec {_prompt_efgit_fd}<&-
+  }
+
+  exec {_prompt_efgit_fd}< <(prompt_efgit_status)
+  zle -F $_prompt_efgit_fd prompt_efgit_response
+}
+
+add-zsh-hook precmd prompt_efgit_precmd
