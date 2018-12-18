@@ -15,7 +15,7 @@ prompt_efgit_status() {
     case "$line" in
       '# branch.head'*) # Current branch
         head="$line[3]"
-        [[ $head == "(detached)" ]] && head="${${$(echo ":$(git rev-parse --short HEAD)")/# #}/% #}"
+        [[ $head == "(detached)" ]] && head="$(echo ":$(git rev-parse --short HEAD)")"
         ;;
       '# branch.ab'*) # Divergence from upstream
         ahead="${line[3]/#+}"
