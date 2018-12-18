@@ -99,9 +99,6 @@ prompt_efgit_response() {
 
 prompt_efgit_precmd() {
   typeset -g _prompt_efgit_fd
-  local FD kill_target
-
-  count=$((count + 1))
 
   prompt_efgit_define_prompt
 
