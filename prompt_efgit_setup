@@ -44,7 +44,7 @@ prompt_efgit_status() {
   [[ $behind > 0 ]] && upstream_divergence+="%F{blue}↓$behind%f"
 
   if [[ $#upstream_divergence > 0 ]]; then
-    parts+="${(j..)upstream_divergence}"
+    parts+="${(j::)upstream_divergence}"
   fi
 
   local -a working_info
@@ -55,12 +55,12 @@ prompt_efgit_status() {
   [[ $untracked > 0 ]] && working_info+="%F{red}+$untracked%f"
 
   if [[ $#working_info > 0 ]]; then
-    parts+="${(j..)working_info}"
+    parts+="${(j::)working_info}"
   else
     parts+="%F{green}✔%f"
   fi
 
-  echo -n "${(j. .)parts}"
+  echo -n "${(j: :)parts}"
 }
 
 prompt_efgit_define_prompt() {
@@ -83,7 +83,7 @@ prompt_efgit_define_prompt() {
   # Prompt arrow (red for non-zero status)
   parts+="%(?.%F{8}.%F{red})❯%f"
 
-  PROMPT=" ${(j. .)parts} "
+  PROMPT=" ${(j: :)parts} "
 }
 
 prompt_efgit_response() {
